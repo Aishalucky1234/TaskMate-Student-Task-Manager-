@@ -28,20 +28,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.taskmate.ui.theme.TaskMateTheme
-
+import android.content.Intent
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            TaskMateTheme {
-                TaskMateHomeScreen()
-            }
+            TaskMateHomeScreen(
+                onBackClick = {
+                    val intent = Intent(this, WelcomeActivity::class.java)
+                    startActivity(intent)
+                    finish()
+                }
+            )
         }
     }
 }
-
 @Composable
-fun TaskMateHomeScreen() {
+fun TaskMateHomeScreen(onBackClick: () -> Unit) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = Color(0xFFF5F6FA)
@@ -53,11 +56,16 @@ fun TaskMateHomeScreen() {
                 .padding(paddingValues)
                 .padding(20.dp)
         ) {
+            Button(
+                onClick = onBackClick
+            ) {
+                Text(text = "← Back")
+            }
             Text(
                 text = "TaskMate",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF3949AB)
+                color = Color(color =(0xFF6750A4))
             )
 
             Text(
@@ -66,7 +74,54 @@ fun TaskMateHomeScreen() {
                 color = Color.Gray
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Text(
+                text = "Good morning! 👋",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF6750A4)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Ready to make today productive?",
+                fontSize = 14.sp,
+                color = Color.Gray
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SummaryCard(
+                    title = "Total",
+                    count = "3",
+                    color = Color(0xFF3949AB),
+                    modifier = Modifier.weight(1f)
+                )
+
+                SummaryCard(
+                    title = "Pending",
+                    count = "2",
+                    color = Color(0xFFEF6C00),
+                    modifier = Modifier.weight(1f)
+                )
+
+                SummaryCard(
+                    title = "Done",
+                    count = "1",
+                    color = Color(0xFF2E7D32),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
 
             Text(
                 text = "My Tasks",
@@ -162,6 +217,42 @@ fun TaskCard(
                 else Color(0xFFEF6C00),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+@Composable
+fun SummaryCard(
+    title: String,
+    count: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 3.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = count,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                color = Color.Gray
             )
         }
     }

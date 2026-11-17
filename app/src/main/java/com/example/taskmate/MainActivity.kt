@@ -1,69 +1,106 @@
-
 package com.example.taskmate
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.taskmate.ui.theme.TaskMateTheme
-import android.content.Intent
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import kotlinx.coroutines.launch
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.FilterChipDefaults
+
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val taskFlow = TaskDatabase.getDatabase(applicationContext)
-            .taskDao()
-            .getAllTasks()
+        val taskDao = TaskDatabase.getDatabase(applicationContext).taskDao()
 
         setContent {
-            val tasks by taskFlow.collectAsState(initial = emptyList())
+            TaskMateTheme {
+                val tasks by taskDao.getAllTasks()
+                    .collectAsState(initial = emptyList())
 
-            TaskMateHomeScreen(
-                tasks = tasks,
-                onBackClick = {
-                    finish()
-                },
-                onAddTaskClick = {
-                    val intent = Intent(this@MainActivity, AddTaskActivity::class.java)
-                    this@MainActivity.startActivity(intent)
-                }
-            )
+                TaskMateHomeScreen(
+                    tasks = tasks,
+                    taskDao = taskDao,
+                    onBackClick = {
+                        finish()
+                    },
+                    onAddTaskClick = {
+                        val intent = Intent(
+                            this@MainActivity,
+                            AddTaskActivity::class.java
+                        )
+                        startActivity(intent)
+                    }
+                )
+            }
         }
     }
 }
+
+private enum class TaskFilter(val label: String) {
+    ALL("All"),
+    PENDING("Pending"),
+    COMPLETED("Completed")
+}
+
 @Composable
 fun TaskMateHomeScreen(
     tasks: List<Task>,
+    taskDao: TaskDao,
     onBackClick: () -> Unit,
     onAddTaskClick: () -> Unit
 ) {
     val totalTasks = tasks.size
     val completedTasks = tasks.count { it.isCompleted }
     val pendingTasks = totalTasks - completedTasks
+
+    val updateScope = rememberCoroutineScope()
+    var selectedFilter by remember {
+        mutableStateOf(TaskFilter.ALL)
+    }
+
+    val visibleTasks = when (selectedFilter) {
+        TaskFilter.ALL -> tasks
+        TaskFilter.PENDING -> tasks.filter { !it.isCompleted }
+        TaskFilter.COMPLETED -> tasks.filter { it.isCompleted }
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = Color(0xFFF5F6FA)
@@ -75,16 +112,16 @@ fun TaskMateHomeScreen(
                 .padding(paddingValues)
                 .padding(20.dp)
         ) {
-            Button(
-                onClick = onBackClick
-            ) {
+
+            Button(onClick = onBackClick) {
                 Text(text = "← Back")
             }
+
             Text(
                 text = "TaskMate",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(color =(0xFF6750A4))
+                color = Color(0xFF6750A4)
             )
 
             Text(
@@ -101,6 +138,7 @@ fun TaskMateHomeScreen(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF6750A4)
             )
+
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
@@ -108,9 +146,6 @@ fun TaskMateHomeScreen(
                 fontSize = 14.sp,
                 color = Color.Gray
             )
-
-            Spacer(modifier = Modifier.height(20.dp))
-            Spacer(modifier = Modifier.height(6.dp))
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -151,41 +186,106 @@ fun TaskMateHomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (tasks.isEmpty()) {
-                Text(
-                    text = "No tasks yet. Add your first task!",
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                )
-            } else {
-                tasks.forEach { task ->
-                    TaskCard(
-                        title = task.title,
-                        deadline = "Deadline: ${task.deadline}",
-                        completed = task.isCompleted
+            // Task filters
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TaskFilter.values().forEach { filter ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = { selectedFilter = filter },
+                        label = { Text(filter.label) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = Color.White,
+                            labelColor = Color.DarkGray,
+                            selectedContainerColor = Color(0xFF42465A),
+                            selectedLabelColor = Color.White
+                        )
                     )
-
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            //  Filtered task list
+            if (visibleTasks.isEmpty()) {
+
+                val message = when {
+                    tasks.isEmpty() ->
+                        "No tasks yet. Add your first task!"
+
+                    selectedFilter == TaskFilter.PENDING ->
+                        "You have no pending tasks. Great job!"
+
+                    selectedFilter == TaskFilter.COMPLETED ->
+                        "No completed tasks yet."
+
+                    else -> "No tasks to show."
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White
+                    )
+                ) {
+                    Text(
+                        text = message,
+                        modifier = Modifier.padding(20.dp),
+                        color = Color.Gray
+                    )
+                }
+
+            } else {
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        items = visibleTasks,
+                        key = { it.id }
+                    ) { task ->
+
+                        TaskCard(
+                            task = task,
+                            onCompletionChanged = { isCompleted ->
+                                updateScope.launch {
+                                    taskDao.updateTaskStatus(
+                                        task.id,
+                                        isCompleted
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
 
             Button(
                 onClick = onAddTaskClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "+ Add Task", fontSize = 16.sp)
+                Text(
+                    text = "+ Add Task",
+                    fontSize = 16.sp
+                )
             }
         }
     }
 }
 
+//  Task completion card
 @Composable
 fun TaskCard(
-    title: String,
-    deadline: String,
-    completed: Boolean
+    task: Task,
+    onCompletionChanged: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -200,39 +300,68 @@ fun TaskCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+
+            Checkbox(
+                checked = task.isCompleted,
+                onCheckedChange = onCompletionChanged,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = Color(0xFF6750A4),
+                    uncheckedColor = Color.DarkGray,
+                    checkmarkColor = Color.White
+                )
+            )
+
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = title,
+                    text = task.title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.DarkGray
+                    color = Color.DarkGray,
+                    textDecoration = if (task.isCompleted) {
+                        TextDecoration.LineThrough
+                    } else {
+                        TextDecoration.None
+                    }
                 )
+
+                if (task.description.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(3.dp))
+
+                    Text(
+                        text = task.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = deadline,
+                    text = "Deadline: ${task.deadline}",
                     fontSize = 13.sp,
                     color = Color.Gray
                 )
             }
 
             Text(
-                text = if (completed) "Done" else "Pending",
-                color = if (completed) Color(0xFF2E7D32)
-                else Color(0xFFEF6C00),
+                text = if (task.isCompleted) "Done" else "Pending",
+                color = if (task.isCompleted) {
+                    Color(0xFF2E7D32)
+                } else {
+                    Color(0xFFEF6C00)
+                },
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
     }
 }
+
 @Composable
 fun SummaryCard(
     title: String,

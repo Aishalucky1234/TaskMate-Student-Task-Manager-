@@ -1,7 +1,9 @@
 package com.example.taskmate
-
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,6 +44,7 @@ import com.example.taskmate.ui.theme.TaskMateTheme
 import kotlinx.coroutines.launch
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.TextButton
 
 class MainActivity : ComponentActivity() {
 
@@ -91,6 +95,8 @@ fun TaskMateHomeScreen(
     val pendingTasks = totalTasks - completedTasks
 
     val updateScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var taskToDelete by remember { mutableStateOf<Task?>(null) }
     var selectedFilter by remember {
         mutableStateOf(TaskFilter.ALL)
     }
@@ -259,6 +265,20 @@ fun TaskMateHomeScreen(
                                         isCompleted
                                     )
                                 }
+                            },
+
+                            onEditClick = {
+                                val intent = Intent(
+                                    context,
+                                    EditTaskActivity::class.java
+                                ).apply {
+                                    putExtra("TASK_ID", task.id)
+                                }
+
+                                context.startActivity(intent)
+                            },
+                            onDeleteClick = {
+                                taskToDelete = task
                             }
                         )
                     }
@@ -279,13 +299,57 @@ fun TaskMateHomeScreen(
             }
         }
     }
+    if (taskToDelete != null) {
+        AlertDialog(
+            onDismissRequest = {
+                taskToDelete = null
+            },
+            title = {
+                Text("Delete Task")
+            },
+            text = {
+                Text("Are you sure you want to delete this task?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val task = taskToDelete
+                        if (task != null) {
+                            updateScope.launch {
+                                taskDao.deleteTask(task)
+                            }
+                            Toast.makeText(
+                                context,
+                                "Task deleted successfully!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        taskToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        taskToDelete = null
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 //  Task completion card
 @Composable
 fun TaskCard(
     task: Task,
-    onCompletionChanged: (Boolean) -> Unit
+    onCompletionChanged: (Boolean) -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -358,6 +422,20 @@ fun TaskCard(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = onEditClick
+            ) {
+                Text("Edit")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = onDeleteClick
+            ) {
+                Text("Delete")
+            }
         }
     }
 }

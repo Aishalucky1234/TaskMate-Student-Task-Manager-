@@ -1,4 +1,5 @@
 package com.example.taskmate
+
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
@@ -70,6 +71,13 @@ class MainActivity : ComponentActivity() {
                             AddTaskActivity::class.java
                         )
                         startActivity(intent)
+                    },
+                    onViewTasksClick = {
+                        val intent = Intent(
+                            this@MainActivity,
+                            ViewTasksActivity::class.java
+                        )
+                        startActivity(intent)
                     }
                 )
             }
@@ -88,7 +96,8 @@ fun TaskMateHomeScreen(
     tasks: List<Task>,
     taskDao: TaskDao,
     onBackClick: () -> Unit,
-    onAddTaskClick: () -> Unit
+    onAddTaskClick: () -> Unit,
+    onViewTasksClick: () -> Unit
 ) {
     val totalTasks = tasks.size
     val completedTasks = tasks.count { it.isCompleted }
@@ -190,6 +199,16 @@ fun TaskMateHomeScreen(
                 color = Color.DarkGray
             )
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Navigate to View Tasks screen
+            Button(
+                onClick = onViewTasksClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("View All Tasks")
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             // Task filters
@@ -214,7 +233,7 @@ fun TaskMateHomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            //  Filtered task list
+            // Filtered task list
             if (visibleTasks.isEmpty()) {
 
                 val message = when {
@@ -287,7 +306,6 @@ fun TaskMateHomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-
             Button(
                 onClick = onAddTaskClick,
                 modifier = Modifier.fillMaxWidth()
@@ -299,6 +317,7 @@ fun TaskMateHomeScreen(
             }
         }
     }
+
     if (taskToDelete != null) {
         AlertDialog(
             onDismissRequest = {
@@ -343,7 +362,7 @@ fun TaskMateHomeScreen(
     }
 }
 
-//  Task completion card
+// Task completion card
 @Composable
 fun TaskCard(
     task: Task,
@@ -422,6 +441,7 @@ fun TaskCard(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
+
             Spacer(modifier = Modifier.width(8.dp))
 
             Button(
@@ -429,6 +449,7 @@ fun TaskCard(
             ) {
                 Text("Edit")
             }
+
             Spacer(modifier = Modifier.width(8.dp))
 
             Button(
